@@ -1,0 +1,79 @@
+id: triage-x
+name: TRIAGE-X Incident Response Benchmark
+version: 1.0.0
+description: >
+  TRIAGE-X is a deterministic incident response simulation environment for evaluating
+  LLM and agent reasoning in distributed system failures. Agents must diagnose root causes,
+  ignore noisy alerts, and recover system health under limited budget.
+
+entrypoint:
+  type: rest
+  base_url: http://localhost:7860
+
+environment:
+  reset:
+    method: POST
+    path: /reset
+    body:
+      task_name: "{task_name}"
+
+  step:
+    method: POST
+    path: /step
+    body:
+      action: "{action}"
+      target: "{target}"
+
+  state:
+    method: GET
+    path: /state
+
+  tasks:
+    method: GET
+    path: /tasks
+
+  score:
+    method: GET
+    path: /score
+
+  health:
+    method: GET
+    path: /health
+
+tasks:
+  - easy_signal_noise
+  - medium_hidden_dependency
+  - hard_multi_incident
+
+observation_schema:
+  type: object
+  fields:
+    task_name: string
+    task_variant: string
+    task_description: string
+    step_count: integer
+    customer_impact: number
+    system_health: number
+    remaining_budget: number
+    recent_actions: array
+    services: array
+    alerts: array
+
+action_schema:
+  type: object
+  fields:
+    action: string
+    target: string?
+
+termination:
+  done_field: done
+  success_field: success
+
+reward:
+  field: reward
+  score_endpoint: /score
+
+notes:
+  - Same task may contain multiple deterministic scenario variants (v1, v2, v3).
+  - Environment is deterministic per task variant.
+  - Agents are evaluated on efficiency, root cause resolution, and harmful action avoidance.
