@@ -9,10 +9,14 @@ const logger = require('../utils/logger');
 async function resetEnv(req, res, next) {
   try {
     const { task_name } = req.body;
-    if (!task_name || typeof task_name !== 'string') {
-      return res.status(400).json(error('task_name is required in the request body.'));
+    // OpenEnv 1.0 specification allows reset without task_name (defaults to first task)
+    const activeTask = task_name || 'easy_signal_noise';
+
+    if (typeof activeTask !== 'string') {
+      return res.status(400).json(error('task_name must be a string if provided.'));
     }
-    const result = simulator.reset(task_name.trim());
+    
+    const result = simulator.reset(activeTask.trim());
     return res.status(200).json(success(result));
   } catch (err) {
     next(err);
