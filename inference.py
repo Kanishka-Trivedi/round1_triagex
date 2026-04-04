@@ -10,8 +10,10 @@ load_dotenv(override=True)
 # Required Environment Variables
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
-HF_TOKEN = os.getenv("HF_TOKEN", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+HF_TOKEN = os.getenv("HF_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# If using from_docker_image(), but we use direct REST
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
 # TRIAGE-X server URL
 ENV_BASE_URL = os.getenv("TRIAGE_BASE_URL", "http://localhost:7860")
