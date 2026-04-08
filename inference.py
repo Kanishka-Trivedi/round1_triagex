@@ -3,12 +3,12 @@ import os
 import sys
 
 # Diagnostic logging for Phase 2 troubleshooting
-print(f"--- [INIT] TRIAGE-X INFERENCE ---")
-print(f"Python Executable: {sys.executable}")
-print(f"Python Version: {sys.version}")
-print(f"CWD: {os.getcwd()}")
-print(f"PATH: {os.environ.get('PATH')}")
-print(f"PYTHONPATH: {os.environ.get('PYTHONPATH')}")
+print(f"--- [INIT] TRIAGE-X INFERENCE ---", flush=True)
+print(f"Python Executable: {sys.executable}", flush=True)
+print(f"Python Version: {sys.version}", flush=True)
+print(f"CWD: {os.getcwd()}", flush=True)
+print(f"PATH: {os.environ.get('PATH')}", flush=True)
+print(f"PYTHONPATH: {os.environ.get('PYTHONPATH')}", flush=True)
 
 import json
 import time
@@ -48,13 +48,13 @@ def post(url, data):
 
 def run_task(task_name, client, max_steps=20):
     # Log EXACTLY as required by the regex
-    print(f"[START] task={task_name} env={BENCHMARK} model={MODEL_NAME}")
+    print(f"[START] task={task_name} env={BENCHMARK} model={MODEL_NAME}", flush=True)
     
     try:
         reset_data = post(f"{ENV_BASE_URL}/reset", {"task_name": task_name})
         obs = reset_data["observation"]
     except Exception as e:
-        print(f"[END] success=false steps=0 rewards=")
+        print(f"[END] success=false steps=0 rewards=", flush=True)
         return False, 0
     
     rewards = []
@@ -74,6 +74,7 @@ def run_task(task_name, client, max_steps=20):
         
         error_msg = "null"
         try:
+            print(f">>> [STEP {i}] Requesting action from LLM (timeout=30s)...", flush=True)
             response = client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=[
@@ -81,7 +82,8 @@ def run_task(task_name, client, max_steps=20):
                     {"role": "user", "content": user_prompt}
                 ],
                 response_format={ "type": "json_object" },
-                temperature=0.2
+                temperature=0.2,
+                timeout=30.0
             )
             raw_content = response.choices[0].message.content
             if not raw_content:
@@ -93,7 +95,9 @@ def run_task(task_name, client, max_steps=20):
                 action_payload["target"] = action_data["target"]
                 
         except Exception as e:
-            error_msg = f"LLM_OR_PARSE_ERROR: {str(e).replace('\n', ' ')}"
+            # Fix: Avoid backslash in f-string expression for older Python versions
+            clean_err = str(e).replace('\n', ' ')
+            error_msg = f"LLM_OR_PARSE_ERROR: {clean_err}"
             action_payload = {"action": "noop"}
             
         action_str = json.dumps(action_payload, separators=(',', ':'))
@@ -116,7 +120,7 @@ def run_task(task_name, client, max_steps=20):
         
         # Log EXACTLY as formatting spec dictates
         done_str = "true" if done else "false"
-        print(f"[STEP] step={i} action={action_str} reward={reward_val:.2f} done={done_str} error={error_msg}")
+        print(f"[STEP] step={i} action={action_str} reward={reward_val:.2f} done={done_str} error={error_msg}", flush=True)
         
         if done:
             break
@@ -125,7 +129,7 @@ def run_task(task_name, client, max_steps=20):
         
     success_str = "true" if success else "false"
     rewards_str = ",".join([f"{r:.2f}" for r in rewards])
-    print(f"[END] success={success_str} steps={steps_taken} rewards={rewards_str}")
+    print(f"[END] success={success_str} steps={steps_taken} rewards={rewards_str}", flush=True)
     return success
 
 def main():
@@ -134,20 +138,20 @@ def main():
     base_url = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
     
     if not api_key:
-        print("[WARNING] No valid API key found. Using dummy_key for local dry-run.")
+        print("[WARNING] No valid API key found. Using dummy_key for local dry-run.", flush=True)
         api_key = "dummy_key"
 
-    print(f"Initializing OpenAI client with base_url: {base_url}")
+    print(f"Initializing OpenAI client with base_url: {base_url}", flush=True)
     try:
         client = OpenAI(
             api_key=api_key,
             base_url=base_url
         )
     except Exception as e:
-        print(f"[ERROR] Failed to initialize OpenAI client: {e}")
+        print(f"[ERROR] Failed to initialize OpenAI client: {e}", flush=True)
         return
     
-    print(f"Connecting to TRIAGE-X server at {ENV_BASE_URL}...")
+    print(f"Connecting to TRIAGE-X server at {ENV_BASE_URL}...", flush=True)
     health_check_passed = False
     for i in range(5):
         try:
@@ -155,19 +159,19 @@ def main():
             health_check_passed = True
             break
         except Exception as e:
-            print(f"Retry {i+1}/5: Failed to connect to TRIAGE-X server: {e}")
+            print(f"Retry {i+1}/5: Failed to connect to TRIAGE-X server: {e}", flush=True)
             time.sleep(2)
     
     if not health_check_passed:
-        print(f"[ERROR] Could not reach TRIAGE-X server at {ENV_BASE_URL}. Exiting.")
+        print(f"[ERROR] Could not reach TRIAGE-X server at {ENV_BASE_URL}. Exiting.", flush=True)
         return
 
-    print(f"Starting inference for tasks: {TASKS}")
+    print(f"Starting inference for tasks: {TASKS}", flush=True)
     for task in TASKS:
         try:
             run_task(task, client, max_steps=15)
         except Exception as e:
-            print(f"[ERROR] Unhandled exception in task {task}: {e}")
+            print(f"[ERROR] Unhandled exception in task {task}: {e}", flush=True)
         
 if __name__ == "__main__":
     try:
