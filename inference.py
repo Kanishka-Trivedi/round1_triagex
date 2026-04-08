@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 import os
+import sys
+
+# Diagnostic logging for Phase 2 troubleshooting
+print(f"--- [INIT] TRIAGE-X INFERENCE ---")
+print(f"Python Executable: {sys.executable}")
+print(f"Python Version: {sys.version}")
+print(f"CWD: {os.getcwd()}")
+print(f"PATH: {os.environ.get('PATH')}")
+print(f"PYTHONPATH: {os.environ.get('PYTHONPATH')}")
+
 import json
 import time
 import requests
@@ -117,20 +127,40 @@ def run_task(task_name, client, max_steps=20):
     return success
 
 def main():
-    api_key = HF_TOKEN if "huggingface" in API_BASE_URL else (OPENAI_API_KEY or "dummy_key")
-    client = OpenAI(
-        api_key=api_key,
-        base_url=API_BASE_URL
-    )
-    
+    api_key = HF_TOKEN if (HF_TOKEN and "huggingface" in API_BASE_URL) else (OPENAI_API_KEY or "dummy_key")
+    if not api_key or api_key == "dummy_key":
+        print("[WARNING] No valid API key found. Inference may fail.")
+
     try:
-        get(f"{ENV_BASE_URL}/health")
+        client = OpenAI(
+            api_key=api_key,
+            base_url=API_BASE_URL
+        )
     except Exception as e:
-        print(f"Failed to connect to TRIAGE-X server at {ENV_BASE_URL}: {e}")
+        print(f"[ERROR] Failed to initialize OpenAI client: {e}")
+        return
+    
+    print(f"Connecting to TRIAGE-X server at {ENV_BASE_URL}...")
+    health_check_passed = False
+    for i in range(5):
+        try:
+            get(f"{ENV_BASE_URL}/health")
+            health_check_passed = True
+            break
+        except Exception as e:
+            print(f"Retry {i+1}/5: Failed to connect to TRIAGE-X server: {e}")
+            time.sleep(2)
+    
+    if not health_check_passed:
+        print(f"[ERROR] Could not reach TRIAGE-X server at {ENV_BASE_URL}. Exiting.")
         return
 
+    print(f"Starting inference for tasks: {TASKS}")
     for task in TASKS:
-        run_task(task, client, max_steps=20)
+        try:
+            run_task(task, client, max_steps=15)
+        except Exception as e:
+            print(f"[ERROR] Unhandled exception in task {task}: {e}")
         
 if __name__ == "__main__":
     main()
