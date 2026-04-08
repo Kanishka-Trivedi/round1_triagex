@@ -84,6 +84,8 @@ def run_task(task_name, client, max_steps=20):
                 temperature=0.2
             )
             raw_content = response.choices[0].message.content
+            if not raw_content:
+                 raise ValueError("Empty response from LLM")
             action_data = json.loads(raw_content)
             
             action_payload = {"action": action_data.get("action", "noop")}
@@ -91,7 +93,7 @@ def run_task(task_name, client, max_steps=20):
                 action_payload["target"] = action_data["target"]
                 
         except Exception as e:
-            error_msg = str(e).replace('\n', ' ')
+            error_msg = f"LLM_OR_PARSE_ERROR: {str(e).replace('\n', ' ')}"
             action_payload = {"action": "noop"}
             
         action_str = json.dumps(action_payload, separators=(',', ':'))
@@ -127,14 +129,19 @@ def run_task(task_name, client, max_steps=20):
     return success
 
 def main():
-    api_key = HF_TOKEN if (HF_TOKEN and "huggingface" in API_BASE_URL) else (OPENAI_API_KEY or "dummy_key")
-    if not api_key or api_key == "dummy_key":
-        print("[WARNING] No valid API key found. Inference may fail.")
+    # Priority: 1. API_KEY (LiteLLM) 2. OPENAI_API_KEY 3. HF_TOKEN
+    api_key = os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
+    base_url = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+    
+    if not api_key:
+        print("[WARNING] No valid API key found. Using dummy_key for local dry-run.")
+        api_key = "dummy_key"
 
+    print(f"Initializing OpenAI client with base_url: {base_url}")
     try:
         client = OpenAI(
             api_key=api_key,
-            base_url=API_BASE_URL
+            base_url=base_url
         )
     except Exception as e:
         print(f"[ERROR] Failed to initialize OpenAI client: {e}")
@@ -163,4 +170,8 @@ def main():
             print(f"[ERROR] Unhandled exception in task {task}: {e}")
         
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"[FATAL] Unhandled inference exception: {e}", file=sys.stderr)
+        sys.exit(1)
